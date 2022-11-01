@@ -4,19 +4,26 @@ import sfcParser from "@vue/compiler-sfc";
 import ts from "typescript";
 import { toLowerCamelCase } from "./utils.mjs";
 
+const excludeFile = [".git", "node_modules"];
+
 /** 主函数 */
 export function getRelyTree(absPath, fileTree = []) {
   const res = fs.readdirSync(absPath).forEach((file) => {
     const pathName = path.join(absPath, file);
     const fileObj = { fileName: pathName, relyonComp: [] };
     // 如果是文件夹
-    if (fs.statSync(pathName).isDirectory()) {
+    if (fs.statSync(pathName).isDirectory() && !excludeFile.includes(file)) {
       getRelyTree(pathName, fileTree);
     } else {
       // 只处理 .vue 文件
       if (path.extname(file) === ".vue") {
-        fileObj.relyonComp = getRelyComp(pathName);
-        fileTree.push(fileObj);
+        try {
+          fileObj.relyonComp = getRelyComp(pathName);
+          fileTree.push(fileObj);
+        } catch (error) {
+          throw new Error(`!!!!文件解析出错,解析出错的文件路径：${pathName}`);
+          console.log(error);
+        }
       }
     }
   });
@@ -27,7 +34,10 @@ export function getRelyTree(absPath, fileTree = []) {
 function getRelyComp(filePath) {
   const fileData = fs.readFileSync(filePath, "utf-8");
   const res = sfcParser.parse(fileData);
-
+  const descriptor = res.descriptor;
+  if (!descriptor.template || !descriptor.script) {
+    return;
+  }
   //sfcParser 的解析产物中已经有 template 的 ast 结果了
   const templateAst = res.descriptor.template.ast;
   // script 部分的 ast 需要自己去解析

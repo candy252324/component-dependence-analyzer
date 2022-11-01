@@ -12,7 +12,7 @@ console.log(path.resolve(__dirnameNew, "./example"));
 const result = getRelyTree(path.resolve(__dirnameNew, "./example"));
 
 // 将分析结果输出到 /test/example 目录下
-const outputPath = path.resolve(__dirnameNew, "rely.json");
+const outputPath = path.resolve(__dirnameNew, "result.json");
 fs.writeFile(outputPath, JSON.stringify(result), (err) => {
   if (!err) {
     console.warn("依赖分析结束，输出目录：", outputPath);
