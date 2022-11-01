@@ -13,69 +13,162 @@ function toLowerCamelCase(str) {
   // 将连字符及其后面的字母转化为大写字母
   var re = /-(\w)/g;
   str = str.replace(re, function ($0, $1) {
-    return $1.toUpperCase();
+    return $1.toUpperCase()
   });
   // 首字母小写
   str = str.charAt(0).toLowerCase() + str.slice(1);
-  return str;
+  return str
 }
 
-const excludeFile = [".git", "node_modules"];
+/**
+ * 获取解析目录，如果用户没传，则使用当前目录作为解析路径
+ * @param {string} pathStr 参数上的路径字符串，rely --path "xxx/xxx"
+ */
+function getEntryPath(pathStr) {
+  let entryPath = pathStr;
+  if (!pathStr) {
+    entryPath = process.cwd();
+  }
+  return entryPath
+}
 
-/** 主函数 */
-function getRelyTree(absPath, fileTree = []) {
-  fs.readdirSync(absPath).forEach((file) => {
+/**
+ * 获取别名映射关系
+ * @param {string} aliasStr 参数上的别名字符串， "@:./src;@components:./src/components"
+ * @returns
+ */
+function getAliasObj(aliasStr) {
+  if (aliasStr) {
+    try {
+      let aliasObj = {}; // {"@":"src","@components":"./src/components"}
+      const aliasArr = aliasStr.split(';'); // ["@:./src","@components:./src/components"]
+      for (let i = 0; i < aliasArr.length; i++) {
+        const item = aliasArr[i];
+        if (item.indexOf(':') === -1) {
+          const errMes = "--alias 参数格式错误，参考格式：rely --alias '@:./src;@components:./src/components'";
+          throw new Error(errMes)
+          return
+        }
+        const key = item.split(':')[0].trim();
+        const value = item.split(':')[1].trim();
+        aliasObj[key] = value;
+      }
+      return aliasObj
+    } catch (error) {
+      throw new Error(error)
+    }
+  } else {
+    return ''
+  }
+}
+
+/**
+ * 获取引用组件的绝对路径
+ * 如相对路径：import footerComp from "./xxx/xxx/footer";
+ * 如路径别名：import footerComp from "@components/footer.vue";
+ * @param {string} absFileDir 当前解析文件所在目录（绝对路径） "E:/projectName/src/main"
+ * @param {string} compPath 组件中import语句中的路径 "@components/footer.vue"
+ * @param {string} entryPath  解析目录（绝对路径） "E:/projectName"
+ * @param {*} aliasObj {"@":"./src","@components":"./src/components"}
+ */
+function getAliasPath(absFileDir, compPath, entryPath, aliasObj) {
+  // 如果没有配置别名
+  if (!aliasObj) {
+    return path.resolve(absFileDir, compPath)
+  } else {
+    try {
+      const aliasKeysArr = Object.keys(aliasObj); // ["@","@components"]
+      const aliasValuesArr = Object.values(aliasObj); // ["./src","./src/components"]
+      const matchAliasIdx = aliasKeysArr.findIndex(item => compPath.startsWith(item));
+      if (matchAliasIdx !== -1) {
+        const aliasKey = aliasKeysArr[matchAliasIdx]; // "@components"
+        const aliasValue = aliasValuesArr[matchAliasIdx]; // "./src/components"
+        let absAliasPath = path.resolve(entryPath, aliasValue); // "E:/projectName/src/components"
+        const s = './' + compPath.replace(aliasKey, ''); // "@components/footer.vue" 转化成 "./src/components/footer.vue"
+        return path.resolve(absAliasPath, s)
+      } else {
+        return path.resolve(absFileDir, compPath)
+      }
+    } catch (error) {
+      console.log('路径解析出错了！！！！！！！！！');
+      console.log(error);
+      throw new Error(error)
+    }
+  }
+}
+
+/** 打印 */
+function consoleSplitLine(key, value) {
+  console.log(`--------------------- ${key} ---------------------`);
+  console.log(value);
+  console.log();
+}
+
+let entryPath = ''; // 解析目录（绝对路径）
+let aliasObj = ''; // 别名映射关系
+const excludeFile = ['.git', 'node_modules'];
+
+function getRelyTree(pathStr, aliasStr) {
+  entryPath = getEntryPath(pathStr);
+  aliasObj = getAliasObj(aliasStr);
+  const result = loop(entryPath);
+  consoleSplitLine('解析目录', entryPath);
+  consoleSplitLine('别名映射关系', aliasObj);
+  consoleSplitLine('解析结果', result);
+  return result
+}
+
+/** 遍历 */
+function loop(absPath, fileTree = []) {
+  fs.readdirSync(absPath).forEach(file => {
     const pathName = path.join(absPath, file);
     const fileObj = { fileName: pathName, relyonComp: [] };
     // 如果是文件夹
     if (fs.statSync(pathName).isDirectory() && !excludeFile.includes(file)) {
-      getRelyTree(pathName, fileTree);
+      loop(pathName, fileTree);
     } else {
       // 只处理 .vue 文件
-      if (path.extname(file) === ".vue") {
+      if (path.extname(file) === '.vue') {
         try {
-          fileObj.relyonComp = getRelyComp(pathName);
+          fileObj.relyonComp = getRelyComp(absPath, file);
           fileTree.push(fileObj);
         } catch (error) {
-          throw new Error(`!!!!文件解析出错,解析出错的文件路径：${pathName}`);
+          console.log(`!!!!文件解析出错,解析出错的文件路径：${pathName}`);
+          console.log(error);
         }
       }
     }
   });
-  return fileTree;
+  return fileTree
 }
 
 /** 获取某个文件依赖的子组件 */
-function getRelyComp(filePath) {
-  const fileData = fs.readFileSync(filePath, "utf-8");
+function getRelyComp(absPath, file) {
+  const filePath = path.join(absPath, file);
+  const fileData = fs.readFileSync(filePath, 'utf-8');
   const res = sfcParser.parse(fileData);
   const descriptor = res.descriptor;
   if (!descriptor.template || !descriptor.script) {
-    return;
+    return []
   }
   //sfcParser 的解析产物中已经有 template 的 ast 结果了
   const templateAst = res.descriptor.template.ast;
   // script 部分的 ast 需要自己去解析
-  const scriptAst = ts.createSourceFile(
-    "",
-    res.descriptor.script.content,
-    ts.ScriptTarget.ES6,
-    false
-  );
+  const scriptAst = ts.createSourceFile('', res.descriptor.script.content, ts.ScriptTarget.ES6, false);
 
   // 获取 template 中使用了的所有标签，["div", "elInput", "footerComp"];
   const templateRely = getTemplateRely(templateAst);
   // 获取 script 引入了的依赖  [{compName:"footerComp",filePath:"xx/xxx.vue"}]
-  const scriptRely = getScriptRely(scriptAst);
+  const scriptRely = getScriptRely(absPath, scriptAst);
   // 必须是 script 中引入了且 template 中使用了的才算是真正的依赖
-  const realRely = scriptRely.filter((item) => {
-    return templateRely.includes(item.compName);
+  const realRely = scriptRely.filter(item => {
+    return templateRely.includes(item.compName)
   });
-  return realRely.map((item) => {
+  return realRely.map(item => {
     return {
       fileName: item.filePath,
-    };
-  });
+    }
+  })
 }
 
 /** 拿到 template 中使用的所有标签（包括原生标签，三方组件如 ant-,el-等）
@@ -87,48 +180,50 @@ function getTemplateRely(ast, result = []) {
     result.push(tagName);
   }
   if (ast.children) {
-    ast.children.forEach((item) => {
+    ast.children.forEach(item => {
       getTemplateRely(item, result);
     });
   }
-  return Array.from(new Set(result));
+  return Array.from(new Set(result))
 }
 
-/** 拿到 script 中通过 import 方式引入的依赖 */
-function getScriptRely(ast) {
+/**
+ * 拿到 script 中通过 import 方式引入的所有依赖
+ * @param absFileDir 当前解析文件所在目录（绝对路径）
+ */
+function getScriptRely(absFileDir, ast) {
   let rely = [];
-  ast.statements.forEach((item) => {
-    // 如：import footerComp from "./xxx/xxx/footer";
+  ast.statements.forEach(item => {
     if (item.importClause && item.importClause.name && item.moduleSpecifier) {
       const compName = item.importClause.name.escapedText; // 组件名称 "footerComp"
-      const filePath = item.moduleSpecifier.text; //组件路径  "./xxx/xxx/footer"
+      const compPath = item.moduleSpecifier.text; //组件路径  "./xxx/xxx/footer"
       rely.push({
         compName: toLowerCamelCase(compName),
-        filePath, // cjh todo,别名匹配
+        filePath: getAliasPath(absFileDir, compPath, entryPath, aliasObj),
       });
     }
   });
-  return rely;
+  return rely
 }
 
 function openBrowser(result) {
-  const data = typeof result === "string" ? result : JSON.stringify(result);
+  const data = typeof result === 'string' ? result : JSON.stringify(result);
   createServer(data);
 }
 function createServer(data) {
   const server = http.createServer();
-  server.on("request", (req, res) => {
-    res.setHeader("Content-Type", "text/html;charset=utf-8");
+  server.on('request', (req, res) => {
+    res.setHeader('Content-Type', 'text/html;charset=utf-8');
     res.write(data);
     res.end();
   });
   server.listen(3345, () => {
-    console.log("服务启动成功，浏览器访问：", "http://localhost:3345/");
+    console.log('服务启动成功，浏览器访问：', 'http://localhost:3345/');
   });
-  server.on("error", (err) => {
+  server.on('error', err => {
     // 端口被占用，(这里判断比较简单，如果端口被占用，则认为已经启动了服务器，不考虑是其它程序占用端口的情况)
-    if (err.code === "EADDRINUSE") {
-      console.log("http://localhost:3345/");
+    if (err.code === 'EADDRINUSE') {
+      console.log('http://localhost:3345/');
     }
   });
 }

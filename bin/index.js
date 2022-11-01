@@ -27,18 +27,8 @@ program.helpInformation = () => {
 program.parse(process.argv)
 
 const options = program.opts() //获取配置参数对象
-console.log(options)
-let entryPath = options.path
-let aliasObj = {} // {"@":"./src","@utils":"./src/utils"}
-
-// 用户是否传入路径，rely --path "xxx/xxx"
-if (!options.path) {
-  entryPath = process.cwd()
-  console.warn(`未传入路径，默认使用当前路径 ${entryPath} 进行分析`)
-}
-
-const result = getRelyTree(entryPath)
-if (!result.length) {
+const result = getRelyTree(options.path, options.alias)
+if (!result || !result.length) {
   console.log('无数据')
 } else {
   // 如果需要打开浏览器

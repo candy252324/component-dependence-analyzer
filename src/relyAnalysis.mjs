@@ -2,26 +2,38 @@ import fs from 'fs'
 import path from 'path'
 import sfcParser from '@vue/compiler-sfc'
 import ts from 'typescript'
-import { toLowerCamelCase } from './utils.mjs'
+import { getEntryPath, getAliasObj, getAliasPath, toLowerCamelCase, consoleSplitLine } from './utils.mjs'
 
+let entryPath = '' // 解析目录（绝对路径）
+let aliasObj = '' // 别名映射关系
 const excludeFile = ['.git', 'node_modules']
 
-/** 主函数 */
-export function getRelyTree(absPath, fileTree = []) {
+export function getRelyTree(pathStr, aliasStr) {
+  entryPath = getEntryPath(pathStr)
+  aliasObj = getAliasObj(aliasStr)
+  const result = loop(entryPath)
+  consoleSplitLine('解析目录', entryPath)
+  consoleSplitLine('别名映射关系', aliasObj)
+  consoleSplitLine('解析结果', result)
+  return result
+}
+
+/** 遍历 */
+function loop(absPath, fileTree = []) {
   const res = fs.readdirSync(absPath).forEach(file => {
     const pathName = path.join(absPath, file)
     const fileObj = { fileName: pathName, relyonComp: [] }
     // 如果是文件夹
     if (fs.statSync(pathName).isDirectory() && !excludeFile.includes(file)) {
-      getRelyTree(pathName, fileTree)
+      loop(pathName, fileTree)
     } else {
       // 只处理 .vue 文件
       if (path.extname(file) === '.vue') {
         try {
-          fileObj.relyonComp = getRelyComp(pathName)
+          fileObj.relyonComp = getRelyComp(absPath, file)
           fileTree.push(fileObj)
         } catch (error) {
-          throw new Error(`!!!!文件解析出错,解析出错的文件路径：${pathName}`)
+          console.log(`!!!!文件解析出错,解析出错的文件路径：${pathName}`)
           console.log(error)
         }
       }
@@ -31,12 +43,13 @@ export function getRelyTree(absPath, fileTree = []) {
 }
 
 /** 获取某个文件依赖的子组件 */
-function getRelyComp(filePath) {
+function getRelyComp(absPath, file) {
+  const filePath = path.join(absPath, file)
   const fileData = fs.readFileSync(filePath, 'utf-8')
   const res = sfcParser.parse(fileData)
   const descriptor = res.descriptor
   if (!descriptor.template || !descriptor.script) {
-    return
+    return []
   }
   //sfcParser 的解析产物中已经有 template 的 ast 结果了
   const templateAst = res.descriptor.template.ast
@@ -46,7 +59,7 @@ function getRelyComp(filePath) {
   // 获取 template 中使用了的所有标签，["div", "elInput", "footerComp"];
   const templateRely = getTemplateRely(templateAst)
   // 获取 script 引入了的依赖  [{compName:"footerComp",filePath:"xx/xxx.vue"}]
-  const scriptRely = getScriptRely(scriptAst)
+  const scriptRely = getScriptRely(absPath, scriptAst)
   // 必须是 script 中引入了且 template 中使用了的才算是真正的依赖
   const realRely = scriptRely.filter(item => {
     return templateRely.includes(item.compName)
@@ -74,17 +87,19 @@ function getTemplateRely(ast, result = []) {
   return Array.from(new Set(result))
 }
 
-/** 拿到 script 中通过 import 方式引入的依赖 */
-function getScriptRely(ast) {
+/**
+ * 拿到 script 中通过 import 方式引入的所有依赖
+ * @param absFileDir 当前解析文件所在目录（绝对路径）
+ */
+function getScriptRely(absFileDir, ast) {
   let rely = []
   ast.statements.forEach(item => {
-    // 如：import footerComp from "./xxx/xxx/footer";
     if (item.importClause && item.importClause.name && item.moduleSpecifier) {
       const compName = item.importClause.name.escapedText // 组件名称 "footerComp"
-      const filePath = item.moduleSpecifier.text //组件路径  "./xxx/xxx/footer"
+      const compPath = item.moduleSpecifier.text //组件路径  "./xxx/xxx/footer"
       rely.push({
         compName: toLowerCamelCase(compName),
-        filePath, // cjh todo,别名匹配
+        filePath: getAliasPath(absFileDir, compPath, entryPath, aliasObj),
       })
     }
   })
