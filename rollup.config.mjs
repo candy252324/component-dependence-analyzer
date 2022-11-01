@@ -1,7 +1,7 @@
 export default {
-  input: "./src/index.mjs",
+  input: './src/index.mjs',
   output: {
-    file: "dist/bundle.js",
-    format: "cjs",
+    file: 'dist/bundle.js',
+    format: 'cjs',
   },
-};
+}

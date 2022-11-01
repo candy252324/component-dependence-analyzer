@@ -5,9 +5,6 @@
   },
   {
     "fileName": "E:\\own\\component-dependence-analyzer\\test\\example\\decorator.vue",
-    "relyonComp": [
-      { "fileName": "@/components/pageheader/PageHeader.vue" },
-      { "fileName": "@/components/myKeepAlive" }
-    ]
+    "relyonComp": [{ "fileName": "@/components/pageheader/PageHeader.vue" }, { "fileName": "@/components/myKeepAlive" }]
   }
 ]

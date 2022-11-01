@@ -25,19 +25,19 @@
 </template>
 
 <script lang="ts">
-import { ref } from "vue";
-import Footer from "./footer";
-import footer2 from "./footer2";
-import footerComp from "./footer3";
+import { ref } from 'vue'
+import Footer from './footer'
+import footer2 from './footer2'
+import footerComp from './footer3'
 
 export default {
   setup() {
-    const text = ref("body");
+    const text = ref('body')
     return {
       text,
-    };
+    }
   },
-};
+}
 </script>
 
 <style lang="less" scoped>
