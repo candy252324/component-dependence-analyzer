@@ -1,0 +1,13 @@
+[
+  {
+    "fileName": "E:\\own\\component-dependence-analyzer\\example\\src\\body.vue",
+    "relyonComp": [{ "fileName": "./footer2" }]
+  },
+  {
+    "fileName": "E:\\own\\component-dependence-analyzer\\example\\src\\decorator.vue",
+    "relyonComp": [
+      { "fileName": "@/components/pageheader/PageHeader.vue" },
+      { "fileName": "@/components/myKeepAlive" }
+    ]
+  }
+]
