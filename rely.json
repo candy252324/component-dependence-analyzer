@@ -1,0 +1,1 @@
+[{"fileName":"E:\\own\\component-dependence-analyzer\\test\\example\\body.vue","relyonComp":[{"fileName":"./footer2"}]},{"fileName":"E:\\own\\component-dependence-analyzer\\test\\example\\decorator.vue","relyonComp":[{"fileName":"@/components/pageheader/PageHeader.vue"}]}]

@@ -5,14 +5,19 @@
   "repository": "https://github.com/candy252324/component-dependence-analyzer.git",
   "author": "cjh <1964646121@qq.com>",
   "license": "MIT",
+  "bin": {
+    "rely": "bin/index.js"
+  },
   "scripts": {
-    "test": "cross-env isTest=true node ./src/index.mjs"
+    "test": "node ./test/index.mjs",
+    "build": "rollup -c rollup.config.mjs"
   },
   "dependencies": {
     "@vue/compiler-sfc": "^3.2.41",
+    "commander": "^9.4.1",
     "typescript": "^4.8.4"
   },
   "devDependencies": {
-    "cross-env": "^7.0.3"
+    "rollup": "^3.2.5"
   }
 }
