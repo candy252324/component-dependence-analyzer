@@ -38,15 +38,17 @@ export function getAliasObj(aliasStr) {
       let aliasObj = {} // {"@":"src","@components":"./src/components"}
       const aliasArr = aliasStr.split(';') // ["@:./src","@components:./src/components"]
       for (let i = 0; i < aliasArr.length; i++) {
-        const item = aliasArr[i]
-        if (item.indexOf(':') === -1) {
-          const errMes = "--alias 参数格式错误，参考格式：rely --alias '@:./src;@components:./src/components'"
-          throw new Error(errMes)
-          return
+        const item = aliasArr[i].trim()
+        if (item) {
+          if (item.indexOf(':') === -1) {
+            const errMes = "--alias 参数格式错误，参考格式：rely --alias '@:./src;@components:./src/components'"
+            throw new Error(errMes)
+            return
+          }
+          const key = item.split(':')[0].trim()
+          const value = item.split(':')[1].trim()
+          aliasObj[key] = value
         }
-        const key = item.split(':')[0].trim()
-        const value = item.split(':')[1].trim()
-        aliasObj[key] = value
       }
       return aliasObj
     } catch (error) {

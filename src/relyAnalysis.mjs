@@ -19,12 +19,12 @@ let extensionsStr = '' // 解析顺序
 const excludeFile = ['.git', 'node_modules']
 
 export function getRelyTree(options) {
-  const { projectDir, filePath, aliasStr, extensions } = options
+  const { projectDir, filePath, alias, extensions } = options
   if (!validateFilePath(filePath)) return
   if (extensions && !validateExtensions(extensions)) return
 
   entryPath = getEntryPath(projectDir)
-  aliasObj = getAliasObj(aliasStr)
+  aliasObj = getAliasObj(alias)
 
   consoleSplitLine('项目目录', entryPath)
   consoleSplitLine('组件路径', filePath)
