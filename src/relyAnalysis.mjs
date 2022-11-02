@@ -4,30 +4,42 @@ import sfcParser from '@vue/compiler-sfc'
 import ts from 'typescript'
 import {
   validateFilePath,
+  validateExtensions,
   getEntryPath,
   getAliasObj,
   getAliasPath,
+  setExtensions,
   toLowerCamelCase,
   consoleSplitLine,
 } from './utils.mjs'
 
 let entryPath = '' // 项目目录（绝对路径）
 let aliasObj = '' // 别名映射关系
+let extensionsStr = '' // 解析顺序
 const excludeFile = ['.git', 'node_modules']
 
-export function getRelyTree(projectDir, filePath, aliasStr) {
+export function getRelyTree(options) {
+  const { projectDir, filePath, aliasStr, extensions } = options
   if (!validateFilePath(filePath)) return
+  if (extensions && !validateExtensions(extensions)) return
+
   entryPath = getEntryPath(projectDir)
   aliasObj = getAliasObj(aliasStr)
 
   consoleSplitLine('项目目录', entryPath)
   consoleSplitLine('组件路径', filePath)
   consoleSplitLine('别名映射关系', aliasObj)
+  // --extensions 未传，使用默认解析顺序
+  if (!extensions) {
+    extensionsStr = '.ts,.tsx,.js,.jsx,.vue,.json'
+    consoleSplitLine('--extensions参数未传，使用默认解析顺序', extensionsStr)
+  } else {
+    extensionsStr = extensions
+    consoleSplitLine('解析顺序', extensionsStr)
+  }
 
   const traverseRes = loop(entryPath)
-  const fianlResult = getRelyResult(filePath, traverseRes)
-
-  consoleSplitLine('解析结果', fianlResult)
+  const fianlResult = getRelyResult(traverseRes, [{ fileName: filePath }])
   return fianlResult
 }
 
@@ -117,9 +129,12 @@ function getScriptRely(absFileDir, ast) {
     if (item.importClause && item.importClause.name && item.moduleSpecifier) {
       const compName = item.importClause.name.escapedText // 组件名称 "footerComp"
       const compPath = item.moduleSpecifier.text //组件路径  "./xxx/xxx/footer"
+      // 处理成绝对路径
+      const aliasPath = getAliasPath(absFileDir, compPath, entryPath, aliasObj)
+      // 处理解析顺序
       rely.push({
         compName: toLowerCamelCase(compName),
-        filePath: getAliasPath(absFileDir, compPath, entryPath, aliasObj),
+        filePath: extensionsStr ? setExtensions(aliasPath, extensionsStr) : aliasPath,
       })
     }
   })
@@ -127,10 +142,34 @@ function getScriptRely(absFileDir, ast) {
 }
 
 /**
- * 计算组件依赖关系
- * @param {string} filePath 组件绝对路径
+ * 计算组件依赖关系 getRelyResult( data, [{ fileName: 'E:/xxx/xxx.vue' }])
+ * @param {Array} searchList
  * @param {*} traverseRes 所有的依赖关系
  */
-function getRelyResult(filePath, traverseRes) {
-  return []
+function getRelyResult(traverseRes, searchList, result = []) {
+  searchList.forEach(searchOne => {
+    const match = traverseRes.filter(item => {
+      return item.relyonComp.find(rely => {
+        // path.normalize 格式化路径
+        return path.normalize(rely.fileName) === path.normalize(searchOne.fileName)
+      })
+    })
+    if (match.length) {
+      const ta = match.map(item => {
+        return {
+          fileName: item.fileName,
+          child: [searchOne],
+        }
+      })
+      getRelyResult(traverseRes, ta, result)
+    } else {
+      const find = result.find(item => item.fileName === searchOne.fileName)
+      if (find) {
+        find.child = (find.child || []).concat(searchOne.child || [])
+      } else {
+        result.push(searchOne)
+      }
+    }
+  })
+  return result
 }

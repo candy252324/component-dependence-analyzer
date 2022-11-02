@@ -12,6 +12,7 @@ program
   .option('-p --projectDir  <projectDir>', '需要分析的项目路径', '')
   .option('-f --filePath  <filePath>', '组件绝对路径', '')
   .option('-a --alias <alias>', '路径别名', '')
+  .option('-e --extensions <extensions>', '解析顺序', '')
   .option('-o --open', '打开浏览器', false)
 
 // 自定义help信息
@@ -20,7 +21,8 @@ program.helpInformation = () => {
     -V, --version          输出版本号
     -p, --projectDir       需要分析的项目路径
     -f, --filePath         组件绝对路径
-    -a, --alias            路径别名(即webpack中配置的alias)
+    -a, --alias            路径别名(对应webpack中配置的resolve.alias)
+    -e, --extensions       解析顺序(对应webpack中配置的resolve.extensions)
     -o, --open             打开浏览器 (default: false)
     -h, --help             输出帮助信息
   `
@@ -33,7 +35,7 @@ const options = program.opts() //获取配置参数对象
 start()
 
 function start() {
-  const result = getRelyTree(options.projectDir, options.filePath, options.alias)
+  const result = getRelyTree(options)
   if (Object.prototype.toString.call(result) !== '[object Array]') return
   if (!result.length) {
     console.log('没有任何组件依赖该组件')
@@ -42,6 +44,7 @@ function start() {
     if (options.open) {
       openBrowser(result)
     } else {
+      console.log('解析结果')
       console.log(result)
     }
   }

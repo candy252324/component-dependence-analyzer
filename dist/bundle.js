@@ -63,6 +63,36 @@ function getAliasObj(aliasStr) {
 }
 
 /**
+ * 给没有后缀的添加后缀
+ * @param {*} filePath  绝对路径
+ * @param {*} extensionsStr  ".ts, .tsx, .js, .jsx, .vue, .json"
+ */
+function setExtensions(filePath, extensionsStr) {
+  const ext = filePath.slice(filePath.lastIndexOf('.'));
+  // 如果有后缀
+  if (ext.startsWith('.') && ext.length > 1 && ext.indexOf('/') === -1) {
+    return filePath
+  } else {
+    const extensionsArr = extensionsStr.split(',');
+    let hasMatch = false;
+    for (let i = 0; i < extensionsArr.length; i++) {
+      const newFilePath = filePath + extensionsArr[i].trim();
+      try {
+        const statsObj = fs.statSync(newFilePath);
+        // 存在该后缀的文件
+        if (statsObj.isFile()) {
+          hasMatch = true;
+          return newFilePath
+        }
+      } catch (error) {}
+    }
+    if (!hasMatch) {
+      return filePath
+    }
+  }
+}
+
+/**
  * 获取引用组件的绝对路径
  * 如相对路径：import footerComp from "./xxx/xxx/footer";
  * 如路径别名：import footerComp from "@components/footer.vue";
@@ -118,6 +148,19 @@ function validateFilePath(filePath) {
   }
   return flag
 }
+/**
+ * 校验 --extensions 参数传的是否正确
+ * 正确格式 ".jxs,.vue,.tsx"
+ */
+function validateExtensions(extensionsStr) {
+  const extensionsArr = extensionsStr.split(',');
+  // 必须以点开头
+  const validate = extensionsArr.every(item => item.startsWith('.'));
+  if (!validate) {
+    console.log('--extensions 参数格式不正确');
+  }
+  return validate
+}
 
 /** 打印 */
 function consoleSplitLine(key, value) {
@@ -133,21 +176,31 @@ function consoleSplitLine(key, value) {
 
 let entryPath = ''; // 项目目录（绝对路径）
 let aliasObj = ''; // 别名映射关系
+let extensionsStr = ''; // 解析顺序
 const excludeFile = ['.git', 'node_modules'];
 
-function getRelyTree(projectDir, filePath, aliasStr) {
+function getRelyTree(options) {
+  const { projectDir, filePath, aliasStr, extensions } = options;
   if (!validateFilePath(filePath)) return
+  if (extensions && !validateExtensions(extensions)) return
+
   entryPath = getEntryPath(projectDir);
   aliasObj = getAliasObj(aliasStr);
 
   consoleSplitLine('项目目录', entryPath);
   consoleSplitLine('组件路径', filePath);
   consoleSplitLine('别名映射关系', aliasObj);
+  // --extensions 未传，使用默认解析顺序
+  if (!extensions) {
+    extensionsStr = '.ts,.tsx,.js,.jsx,.vue,.json';
+    consoleSplitLine('--extensions参数未传，使用默认解析顺序', extensionsStr);
+  } else {
+    extensionsStr = extensions;
+    consoleSplitLine('解析顺序', extensionsStr);
+  }
 
-  loop(entryPath);
-  const fianlResult = getRelyResult();
-
-  consoleSplitLine('解析结果', fianlResult);
+  const traverseRes = loop(entryPath);
+  const fianlResult = getRelyResult(traverseRes, [{ fileName: filePath }]);
   return fianlResult
 }
 
@@ -237,9 +290,12 @@ function getScriptRely(absFileDir, ast) {
     if (item.importClause && item.importClause.name && item.moduleSpecifier) {
       const compName = item.importClause.name.escapedText; // 组件名称 "footerComp"
       const compPath = item.moduleSpecifier.text; //组件路径  "./xxx/xxx/footer"
+      // 处理成绝对路径
+      const aliasPath = getAliasPath(absFileDir, compPath, entryPath, aliasObj);
+      // 处理解析顺序
       rely.push({
         compName: toLowerCamelCase(compName),
-        filePath: getAliasPath(absFileDir, compPath, entryPath, aliasObj),
+        filePath: extensionsStr ? setExtensions(aliasPath, extensionsStr) : aliasPath,
       });
     }
   });
@@ -247,12 +303,36 @@ function getScriptRely(absFileDir, ast) {
 }
 
 /**
- * 计算组件依赖关系
- * @param {string} filePath 组件绝对路径
+ * 计算组件依赖关系 getRelyResult( data, [{ fileName: 'E:/xxx/xxx.vue' }])
+ * @param {Array} searchList
  * @param {*} traverseRes 所有的依赖关系
  */
-function getRelyResult(filePath, traverseRes) {
-  return []
+function getRelyResult(traverseRes, searchList, result = []) {
+  searchList.forEach(searchOne => {
+    const match = traverseRes.filter(item => {
+      return item.relyonComp.find(rely => {
+        // path.normalize 格式化路径
+        return path.normalize(rely.fileName) === path.normalize(searchOne.fileName)
+      })
+    });
+    if (match.length) {
+      const ta = match.map(item => {
+        return {
+          fileName: item.fileName,
+          child: [searchOne],
+        }
+      });
+      getRelyResult(traverseRes, ta, result);
+    } else {
+      const find = result.find(item => item.fileName === searchOne.fileName);
+      if (find) {
+        find.child = (find.child || []).concat(searchOne.child || []);
+      } else {
+        result.push(searchOne);
+      }
+    }
+  });
+  return result
 }
 
 function openBrowser(result) {

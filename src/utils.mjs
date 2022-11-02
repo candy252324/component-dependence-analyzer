@@ -58,6 +58,36 @@ export function getAliasObj(aliasStr) {
 }
 
 /**
+ * 给没有后缀的添加后缀
+ * @param {*} filePath  绝对路径
+ * @param {*} extensionsStr  ".ts, .tsx, .js, .jsx, .vue, .json"
+ */
+export function setExtensions(filePath, extensionsStr) {
+  const ext = filePath.slice(filePath.lastIndexOf('.'))
+  // 如果有后缀
+  if (ext.startsWith('.') && ext.length > 1 && ext.indexOf('/') === -1) {
+    return filePath
+  } else {
+    const extensionsArr = extensionsStr.split(',')
+    let hasMatch = false
+    for (let i = 0; i < extensionsArr.length; i++) {
+      const newFilePath = filePath + extensionsArr[i].trim()
+      try {
+        const statsObj = fs.statSync(newFilePath)
+        // 存在该后缀的文件
+        if (statsObj.isFile()) {
+          hasMatch = true
+          return newFilePath
+        }
+      } catch (error) {}
+    }
+    if (!hasMatch) {
+      return filePath
+    }
+  }
+}
+
+/**
  * 获取引用组件的绝对路径
  * 如相对路径：import footerComp from "./xxx/xxx/footer";
  * 如路径别名：import footerComp from "@components/footer.vue";
@@ -112,6 +142,19 @@ export function validateFilePath(filePath) {
     }
   }
   return flag
+}
+/**
+ * 校验 --extensions 参数传的是否正确
+ * 正确格式 ".jxs,.vue,.tsx"
+ */
+export function validateExtensions(extensionsStr) {
+  const extensionsArr = extensionsStr.split(',')
+  // 必须以点开头
+  const validate = extensionsArr.every(item => item.startsWith('.'))
+  if (!validate) {
+    console.log('--extensions 参数格式不正确')
+  }
+  return validate
 }
 
 /** 打印 */
