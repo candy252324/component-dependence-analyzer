@@ -22,11 +22,11 @@ function toLowerCamelCase(str) {
 
 /**
  * 获取解析目录，如果用户没传，则使用当前目录作为解析路径
- * @param {string} pathStr 参数上的路径字符串，rely --path "xxx/xxx"
+ * @param {string} projectDir 参数上的路径字符串，rely --projectDir "xxx/xxx"
  */
-function getEntryPath(pathStr) {
-  let entryPath = pathStr;
-  if (!pathStr) {
+function getEntryPath(projectDir) {
+  let entryPath = projectDir;
+  if (!projectDir) {
     entryPath = process.cwd();
   }
   return entryPath
@@ -97,28 +97,68 @@ function getAliasPath(absFileDir, compPath, entryPath, aliasObj) {
   }
 }
 
+/**
+ * 校验传入的组件路径格式是否正确
+ * @param {string} filePath
+ * @returns
+ */
+function validateFilePath(filePath) {
+  let flag = false;
+  if (!filePath) {
+    console.log('--filePath 必须传入');
+  } else {
+    const statsObj = fs.statSync(filePath);
+    if (statsObj.isDirectory()) {
+      console.log('--filePath 参数传入错误');
+    }
+    // 必须是文件，且后缀是vue
+    else if (statsObj.isFile() && path.extname(filePath) === '.vue') {
+      flag = true;
+    }
+  }
+  return flag
+}
+
 /** 打印 */
 function consoleSplitLine(key, value) {
-  console.log(`--------------------- ${key} ---------------------`);
-  console.log(value);
+  value = value ? value : '无';
+  if (typeof value === 'string') {
+    console.log(`---- ${key}: ${value}`);
+  } else {
+    console.log(`---- ${key}`);
+    console.log(value);
+  }
   console.log();
 }
 
-let entryPath = ''; // 解析目录（绝对路径）
+let entryPath = ''; // 项目目录（绝对路径）
 let aliasObj = ''; // 别名映射关系
 const excludeFile = ['.git', 'node_modules'];
 
-function getRelyTree(pathStr, aliasStr) {
-  entryPath = getEntryPath(pathStr);
+function getRelyTree(projectDir, filePath, aliasStr) {
+  if (!validateFilePath(filePath)) return
+  entryPath = getEntryPath(projectDir);
   aliasObj = getAliasObj(aliasStr);
-  const result = loop(entryPath);
-  consoleSplitLine('解析目录', entryPath);
+
+  consoleSplitLine('项目目录', entryPath);
+  consoleSplitLine('组件路径', filePath);
   consoleSplitLine('别名映射关系', aliasObj);
-  consoleSplitLine('解析结果', result);
-  return result
+
+  loop(entryPath);
+  const fianlResult = getRelyResult();
+
+  consoleSplitLine('解析结果', fianlResult);
+  return fianlResult
 }
 
-/** 遍历 */
+/** 遍历项目目录，拿到每个vue文件的依赖
+ * [{
+ *  fileName:"E:/projectDir/main.vue",
+ *  relyonComp:[{
+ *    fileName:"E:/projectDir/components/footer.vue",
+ *  }]
+ * }]
+ */
 function loop(absPath, fileTree = []) {
   fs.readdirSync(absPath).forEach(file => {
     const pathName = path.join(absPath, file);
@@ -204,6 +244,15 @@ function getScriptRely(absFileDir, ast) {
     }
   });
   return rely
+}
+
+/**
+ * 计算组件依赖关系
+ * @param {string} filePath 组件绝对路径
+ * @param {*} traverseRes 所有的依赖关系
+ */
+function getRelyResult(filePath, traverseRes) {
+  return []
 }
 
 function openBrowser(result) {

@@ -2,23 +2,43 @@ import fs from 'fs'
 import path from 'path'
 import sfcParser from '@vue/compiler-sfc'
 import ts from 'typescript'
-import { getEntryPath, getAliasObj, getAliasPath, toLowerCamelCase, consoleSplitLine } from './utils.mjs'
+import {
+  validateFilePath,
+  getEntryPath,
+  getAliasObj,
+  getAliasPath,
+  toLowerCamelCase,
+  consoleSplitLine,
+} from './utils.mjs'
 
-let entryPath = '' // 解析目录（绝对路径）
+let entryPath = '' // 项目目录（绝对路径）
 let aliasObj = '' // 别名映射关系
 const excludeFile = ['.git', 'node_modules']
 
-export function getRelyTree(pathStr, aliasStr) {
-  entryPath = getEntryPath(pathStr)
+export function getRelyTree(projectDir, filePath, aliasStr) {
+  if (!validateFilePath(filePath)) return
+  entryPath = getEntryPath(projectDir)
   aliasObj = getAliasObj(aliasStr)
-  const result = loop(entryPath)
-  consoleSplitLine('解析目录', entryPath)
+
+  consoleSplitLine('项目目录', entryPath)
+  consoleSplitLine('组件路径', filePath)
   consoleSplitLine('别名映射关系', aliasObj)
-  consoleSplitLine('解析结果', result)
-  return result
+
+  const traverseRes = loop(entryPath)
+  const fianlResult = getRelyResult(filePath, traverseRes)
+
+  consoleSplitLine('解析结果', fianlResult)
+  return fianlResult
 }
 
-/** 遍历 */
+/** 遍历项目目录，拿到每个vue文件的依赖
+ * [{
+ *  fileName:"E:/projectDir/main.vue",
+ *  relyonComp:[{
+ *    fileName:"E:/projectDir/components/footer.vue",
+ *  }]
+ * }]
+ */
 function loop(absPath, fileTree = []) {
   const res = fs.readdirSync(absPath).forEach(file => {
     const pathName = path.join(absPath, file)
@@ -104,4 +124,13 @@ function getScriptRely(absFileDir, ast) {
     }
   })
   return rely
+}
+
+/**
+ * 计算组件依赖关系
+ * @param {string} filePath 组件绝对路径
+ * @param {*} traverseRes 所有的依赖关系
+ */
+function getRelyResult(filePath, traverseRes) {
+  return []
 }

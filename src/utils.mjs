@@ -1,4 +1,6 @@
 import path from 'path'
+import fs from 'fs'
+
 /** 转化为小驼峰
  *  A-bcd-e 转化为 aBcdE
  */
@@ -15,11 +17,11 @@ export function toLowerCamelCase(str) {
 
 /**
  * 获取解析目录，如果用户没传，则使用当前目录作为解析路径
- * @param {string} pathStr 参数上的路径字符串，rely --path "xxx/xxx"
+ * @param {string} projectDir 参数上的路径字符串，rely --projectDir "xxx/xxx"
  */
-export function getEntryPath(pathStr) {
-  let entryPath = pathStr
-  if (!pathStr) {
+export function getEntryPath(projectDir) {
+  let entryPath = projectDir
+  if (!projectDir) {
     entryPath = process.cwd()
   }
   return entryPath
@@ -90,9 +92,36 @@ export function getAliasPath(absFileDir, compPath, entryPath, aliasObj) {
   }
 }
 
+/**
+ * 校验传入的组件路径格式是否正确
+ * @param {string} filePath
+ * @returns
+ */
+export function validateFilePath(filePath) {
+  let flag = false
+  if (!filePath) {
+    console.log('--filePath 必须传入')
+  } else {
+    const statsObj = fs.statSync(filePath)
+    if (statsObj.isDirectory()) {
+      console.log('--filePath 参数传入错误')
+    }
+    // 必须是文件，且后缀是vue
+    else if (statsObj.isFile() && path.extname(filePath) === '.vue') {
+      flag = true
+    }
+  }
+  return flag
+}
+
 /** 打印 */
 export function consoleSplitLine(key, value) {
-  console.log(`--------------------- ${key} ---------------------`)
-  console.log(value)
+  value = value ? value : '无'
+  if (typeof value === 'string') {
+    console.log(`---- ${key}: ${value}`)
+  } else {
+    console.log(`---- ${key}`)
+    console.log(value)
+  }
   console.log()
 }

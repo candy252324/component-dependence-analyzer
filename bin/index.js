@@ -9,7 +9,8 @@ const openBrowser = require('../dist/bundle.js').openBrowser
 program.version(packageJson.version)
 // 需要的参数
 program
-  .option('-p --path  <pathname>', '需要分析的项目路径', '')
+  .option('-p --projectDir  <projectDir>', '需要分析的项目路径', '')
+  .option('-f --filePath  <filePath>', '组件绝对路径', '')
   .option('-a --alias <alias>', '路径别名', '')
   .option('-o --open', '打开浏览器', false)
 
@@ -17,8 +18,9 @@ program
 program.helpInformation = () => {
   return `
     -V, --version          输出版本号
-    -p, --path             需要分析的项目路径
-    -a, --alias            路径别名
+    -p, --projectDir       需要分析的项目路径
+    -f, --filePath         组件绝对路径
+    -a, --alias            路径别名(即webpack中配置的alias)
     -o, --open             打开浏览器 (default: false)
     -h, --help             输出帮助信息
   `
@@ -27,14 +29,20 @@ program.helpInformation = () => {
 program.parse(process.argv)
 
 const options = program.opts() //获取配置参数对象
-const result = getRelyTree(options.path, options.alias)
-if (!result || !result.length) {
-  console.log('无数据')
-} else {
-  // 如果需要打开浏览器
-  if (options.open) {
-    openBrowser(result)
+
+start()
+
+function start() {
+  const result = getRelyTree(options.projectDir, options.filePath, options.alias)
+  if (Object.prototype.toString.call(result) !== '[object Array]') return
+  if (!result.length) {
+    console.log('没有任何组件依赖该组件')
   } else {
-    console.log(result)
+    // 如果需要打开浏览器
+    if (options.open) {
+      openBrowser(result)
+    } else {
+      console.log(result)
+    }
   }
 }
