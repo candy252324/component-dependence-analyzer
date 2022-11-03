@@ -1,6 +1,6 @@
 {
   "name": "component-dependence-analyzer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "main": "index.js",
   "repository": "https://github.com/candy252324/component-dependence-analyzer.git",
   "author": "cjh <1964646121@qq.com>",
