@@ -38,8 +38,8 @@ export function getRelyTree(options) {
     consoleSplitLine('解析顺序', extensionsStr)
   }
 
-  const traverseRes = loop(entryPath)
-  const fianlResult = getRelyResult(traverseRes, [{ fileName: filePath }])
+  const rawRely = loop(entryPath)
+  const fianlResult = getRelyResult(rawRely, [{ fileName: filePath }])
   return fianlResult
 }
 
@@ -144,11 +144,11 @@ function getScriptRely(absFileDir, ast) {
 /**
  * 计算组件依赖关系 getRelyResult( data, [{ fileName: 'E:/xxx/xxx.vue' }])
  * @param {Array} searchList
- * @param {*} traverseRes 所有的依赖关系
+ * @param {*} rawRely 所有的依赖关系
  */
-function getRelyResult(traverseRes, searchList, result = []) {
+function getRelyResult(rawRely, searchList, result = []) {
   searchList.forEach(searchOne => {
-    const match = traverseRes.filter(item => {
+    const match = rawRely.filter(item => {
       return item.relyonComp.find(rely => {
         // path.normalize 格式化路径
         return path.normalize(rely.fileName) === path.normalize(searchOne.fileName)
@@ -161,7 +161,7 @@ function getRelyResult(traverseRes, searchList, result = []) {
           child: [searchOne],
         }
       })
-      getRelyResult(traverseRes, ta, result)
+      getRelyResult(rawRely, ta, result)
     } else {
       const find = result.find(item => item.fileName === searchOne.fileName)
       if (find) {
